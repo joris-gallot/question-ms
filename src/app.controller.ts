@@ -1,11 +1,24 @@
-import { Controller, Get, Inject, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Inject,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ClientProxy, MessagePattern } from '@nestjs/microservices';
 import { lastValueFrom } from 'rxjs';
 import { AppService } from './app.service';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
+import {
+  AnswersGameDto,
+  ResponseAnswersGameDto,
+} from './interfaces/Answer.interface';
 import { IGetQuestionsQuery } from './interfaces/GetQuestionsQuery.interface';
 import { IOpenDBQuestion } from './interfaces/OpenDB.interface';
-import { IQuestion } from './interfaces/Question.interface';
+import { ResponseGetQuestions } from './interfaces/Question.interface';
 import { OpenDBService } from './opentdb.service';
 import { Question } from './schemas/question.schema';
 
@@ -18,7 +31,7 @@ export class AppController {
   ) {}
 
   @MessagePattern({ cmd: 'GET_QUESTION' })
-  async getQuestionByd(id: number): Promise<Question> {
+  async getQuestionByd(id: string): Promise<Question> {
     return this.appService.getQuestionById(id);
   }
 
@@ -29,8 +42,28 @@ export class AppController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Post('/games/:id/answers')
+  async saveAnswers(
+    @Param('id') id: string,
+    @Body() payload: AnswersGameDto,
+  ): Promise<ResponseAnswersGameDto> {
+    const score = await this.appService.calculateScore(payload);
+
+    const saveScore$ = await this.gameClient.send(
+      { cmd: 'SAVE_SCORE' },
+      { score, gameId: id, userId: 1 },
+    );
+
+    await lastValueFrom(saveScore$);
+
+    return { score };
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get('questions')
-  async getQuestion(@Query() query: IGetQuestionsQuery): Promise<IQuestion[]> {
+  async getQuestion(
+    @Query() query: IGetQuestionsQuery,
+  ): Promise<ResponseGetQuestions> {
     const questions = await this.openDBService.getQuestions(query);
 
     const questionsFromDB = await this.appService.findOrCreateQuestions(
@@ -42,8 +75,8 @@ export class AppController {
       { questions: questionsFromDB, userId: 1 },
     );
 
-    await lastValueFrom(gameCreated$);
+    const gameCreated = await lastValueFrom(gameCreated$);
 
-    return questionsFromDB;
+    return { questions: questionsFromDB, gameId: gameCreated.id };
   }
 }

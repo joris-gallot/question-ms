@@ -1,5 +1,5 @@
 export interface IQuestion {
-  id: string;
+  id?: string;
   difficulty: string;
   category: string;
   question: string;
@@ -7,4 +7,9 @@ export interface IQuestion {
   correct_answer: string;
   incorrect_answers: string[];
   createdAt: Date;
+}
+
+export interface ResponseGetQuestions {
+  questions: IQuestion[];
+  gameId: number;
 }
