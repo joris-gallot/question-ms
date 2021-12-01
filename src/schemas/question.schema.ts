@@ -23,6 +23,9 @@ export class Question {
   @Prop()
   incorrect_answers: string[];
 
+  @Prop()
+  answers: string[];
+
   @Prop({ default: new Date() })
   createdAt: Date;
 }
